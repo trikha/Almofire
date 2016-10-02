@@ -29,12 +29,10 @@ Released on 2016-10-01. All issues associated with this milestone can be found u
 
 #### Fixed
 - Assorted memory leaks caused by underlying Swift runtime bugs.
-  - Fixed by [Jon Shier](https://github.com/jshier) in regards to Issue [#1626](https://github.com/Alamofire/Alamofire/issues/1626).
-- Updated test logic for a result change in macOS 10.12.
+  - Fixed by [Jon Shier](https://github.com/jshier) in regards to Issue
+  [#1626](https://github.com/Alamofire/Alamofire/issues/1626).
+- Issue in the test suite logic on macOS 10.12.
   - Fixed by [Jon Shier](https://github.com/jshier).
-
-
----
 
 ## [3.5.0](https://github.com/Alamofire/Alamofire/releases/tag/3.5.0)
 Released on 2016-09-07. All issues associated with this milestone can be found using this
