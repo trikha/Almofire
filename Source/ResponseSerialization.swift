@@ -473,6 +473,20 @@ extension DownloadRequest {
 // MARK: - JSON
 
 extension Request {
+    
+    static func isValidNoDataResponse(request: URLRequest?, response: HTTPURLResponse?) -> Bool {
+        if
+            let request = request,
+            let response = response,
+            let method = HTTPMethod(rawValue: request.httpMethod!),
+            (emptyDataStatusCodes.contains(response.statusCode) || emptyDataHTTPMethods.contains(method)) {
+            return true
+        }
+        else {
+            return false
+        }
+    }
+    
     /// Returns a JSON object contained in a result type constructed from the response data using `JSONSerialization`
     /// with the specified reading options.
     ///
@@ -484,6 +498,7 @@ extension Request {
     /// - returns: The result data type.
     public static func serializeResponseJSON(
         options: JSONSerialization.ReadingOptions,
+        request: URLRequest?,
         response: HTTPURLResponse?,
         data: Data?,
         error: Error?)
@@ -491,10 +506,10 @@ extension Request {
     {
         guard error == nil else { return .failure(error!) }
 
-        if let response = response, emptyDataStatusCodes.contains(response.statusCode) { return .success(NSNull()) }
-
         guard let validData = data, validData.count > 0 else {
-            return .failure(AFError.responseSerializationFailed(reason: .inputDataNilOrZeroLength))
+            return isValidNoDataResponse(request: request, response: response) ?
+                .success(NSNull()) :
+                .failure(AFError.responseSerializationFailed(reason: .inputDataNilOrZeroLength))
         }
 
         do {
@@ -517,8 +532,8 @@ extension DataRequest {
         options: JSONSerialization.ReadingOptions = .allowFragments)
         -> DataResponseSerializer<Any>
     {
-        return DataResponseSerializer { _, response, data, error in
-            return Request.serializeResponseJSON(options: options, response: response, data: data, error: error)
+        return DataResponseSerializer { request, response, data, error in
+            return Request.serializeResponseJSON(options: options, request: request, response: response, data: data, error: error)
         }
     }
 
@@ -714,3 +729,6 @@ extension DownloadRequest {
 
 /// A set of HTTP response status code that do not contain response data.
 private let emptyDataStatusCodes: Set<Int> = [204, 205]
+
+/// A set of HTTPMethods that do not contain response data.
+private let emptyDataHTTPMethods: Set<HTTPMethod> = [.head]
