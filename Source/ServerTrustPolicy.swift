@@ -22,6 +22,7 @@
 //  THE SOFTWARE.
 //
 
+import CoreFoundation
 import Foundation
 
 /// Responsible for managing the mapping of `ServerTrustPolicy` objects to a given host.

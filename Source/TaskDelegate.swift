@@ -22,12 +22,154 @@
 //  THE SOFTWARE.
 //
 
+import CoreFoundation
+import Dispatch
 import Foundation
 
 /// The task delegate is responsible for handling all delegate callbacks for the underlying task as well as
 /// executing all operations attached to the serial operation queue upon task completion.
-open class TaskDelegate: NSObject {
+#if os(Linux)
+open class TaskDelegate {
+        // MARK: Properties
 
+    /// The serial operation queue used to execute all operations after the task completes.
+    open let queue: OperationQueue
+
+    /// The data returned by the server.
+    public var data: Data? { return nil }
+
+    /// The error generated throughout the lifecyle of the task.
+    public var error: Error?
+
+    var task: URLSessionTask? {
+        didSet { reset() }
+    }
+
+    var initialResponseTime: CFAbsoluteTime?
+    var credential: URLCredential?
+    var metrics: AnyObject? // URLSessionTaskMetrics
+
+    // MARK: Lifecycle
+
+    init(task: URLSessionTask?) {
+        self.task = task
+
+        self.queue = {
+            let operationQueue = OperationQueue()
+
+            operationQueue.maxConcurrentOperationCount = 1
+            operationQueue.isSuspended = true
+            operationQueue.qualityOfService = .utility
+
+            return operationQueue
+        }()
+    }
+
+    func reset() {
+        error = nil
+        initialResponseTime = nil
+    }
+
+    // MARK: URLSessionTaskDelegate
+
+    var taskWillPerformHTTPRedirection: ((URLSession, URLSessionTask, HTTPURLResponse, URLRequest) -> URLRequest?)?
+    var taskDidReceiveChallenge: ((URLSession, URLSessionTask, URLAuthenticationChallenge) -> (URLSession.AuthChallengeDisposition, URLCredential?))?
+    var taskNeedNewBodyStream: ((URLSession, URLSessionTask) -> InputStream?)?
+    var taskDidCompleteWithError: ((URLSession, URLSessionTask, Error?) -> Void)?
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void)
+    {
+        var redirectRequest: URLRequest? = request
+
+        if let taskWillPerformHTTPRedirection = taskWillPerformHTTPRedirection {
+            redirectRequest = taskWillPerformHTTPRedirection(session, task, response, request)
+        }
+
+        completionHandler(redirectRequest)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void)
+    {
+        var disposition: URLSession.AuthChallengeDisposition = .performDefaultHandling
+        var credential: URLCredential?
+
+        if let taskDidReceiveChallenge = taskDidReceiveChallenge {
+            (disposition, credential) = taskDidReceiveChallenge(session, task, challenge)
+        } else if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust {
+            let host = challenge.protectionSpace.host
+
+            if
+                let serverTrustPolicy = session.serverTrustPolicyManager?.serverTrustPolicy(forHost: host),
+                let serverTrust = challenge.protectionSpace.serverTrust
+            {
+                if serverTrustPolicy.evaluate(serverTrust, forHost: host) {
+                    disposition = .useCredential
+                    credential = URLCredential(trust: serverTrust)
+                } else {
+                    disposition = .cancelAuthenticationChallenge
+                }
+            }
+        } else {
+            if challenge.previousFailureCount > 0 {
+                disposition = .rejectProtectionSpace
+            } else {
+                credential = self.credential ?? session.configuration.urlCredentialStorage?.defaultCredential(for: challenge.protectionSpace)
+
+                if credential != nil {
+                    disposition = .useCredential
+                }
+            }
+        }
+
+        completionHandler(disposition, credential)
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        needNewBodyStream completionHandler: @escaping (InputStream?) -> Void)
+    {
+        var bodyStream: InputStream?
+
+        if let taskNeedNewBodyStream = taskNeedNewBodyStream {
+            bodyStream = taskNeedNewBodyStream(session, task)
+        }
+
+        completionHandler(bodyStream)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let taskDidCompleteWithError = taskDidCompleteWithError {
+            taskDidCompleteWithError(session, task, error)
+        } else {
+            if let error = error {
+                if self.error == nil { self.error = error }
+
+                if
+                    let downloadDelegate = self as? DownloadTaskDelegate,
+                    let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+                {
+                    downloadDelegate.resumeData = resumeData
+                }
+            }
+
+            queue.isSuspended = false
+        }
+    }
+}
+    
+#else
+
+open class TaskDelegate: NSObject {   
     // MARK: Properties
 
     /// The serial operation queue used to execute all operations after the task completes.
@@ -168,6 +310,8 @@ open class TaskDelegate: NSObject {
         }
     }
 }
+
+#endif    
 
 // MARK: -
 

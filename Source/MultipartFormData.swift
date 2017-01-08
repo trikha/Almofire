@@ -22,6 +22,7 @@
 //  THE SOFTWARE.
 //
 
+import CoreFoundation
 import Foundation
 
 #if os(iOS) || os(watchOS) || os(tvOS)

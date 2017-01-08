@@ -22,6 +22,7 @@
 //  THE SOFTWARE.
 //
 
+import CoreFoundation
 import Foundation
 
 /// HTTP method definitions.

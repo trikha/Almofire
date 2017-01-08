@@ -186,7 +186,8 @@ open class SessionDelegate: NSObject {
     public override init() {
         super.init()
     }
-
+    
+#if !os(Linux)
     // MARK: NSObject Overrides
 
     /// Returns a `Bool` indicating whether the `SessionDelegate` implements or inherits a method that can respond
@@ -232,6 +233,7 @@ open class SessionDelegate: NSObject {
             return type(of: self).instancesRespond(to: selector)
         }
     }
+#endif
 }
 
 // MARK: - URLSessionDelegate

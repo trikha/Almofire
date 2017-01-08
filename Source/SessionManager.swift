@@ -22,6 +22,7 @@
 //  THE SOFTWARE.
 //
 
+import Dispatch
 import Foundation
 
 /// Responsible for creating and managing `Request` objects, as well as their underlying `NSURLSession`.
@@ -796,7 +797,7 @@ open class SessionManager {
     open func stream(withHostName hostName: String, port: Int) -> StreamRequest {
         return stream(.stream(hostName: hostName, port: port))
     }
-
+#if !os(Linux)
     // MARK: NetService
 
     /// Creates a `StreamRequest` for bidirectional streaming using the `netService`.
@@ -811,6 +812,7 @@ open class SessionManager {
     open func stream(with netService: NetService) -> StreamRequest {
         return stream(.netService(netService))
     }
+#endif
 
     // MARK: Private - Stream Implementation
 

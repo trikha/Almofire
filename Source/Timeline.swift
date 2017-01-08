@@ -22,6 +22,7 @@
 //  THE SOFTWARE.
 //
 
+import CoreFoundation
 import Foundation
 
 /// Responsible for computing the timing metrics for the complete lifecycle of a `Request`.

@@ -22,7 +22,13 @@
 //  THE SOFTWARE.
 //
 
+import CoreFoundation
+import Dispatch
 import Foundation
+
+#if os(Linux) 
+public typealias Progress = NSProgress 
+#endif
 
 /// A type that can inspect and optionally adapt a `URLRequest` in some manner if necessary.
 public protocol RequestAdapter {
@@ -622,13 +628,35 @@ open class UploadRequest: DataRequest {
 
 #if !os(watchOS)
 
+#if os(Linux)
+
+/// Specific type of `Request` that manages an underlying `URLSessionStreamTask`.
+open class StreamRequest: Request {
+    enum Streamable: TaskConvertible {
+        case stream(hostName: String, port: Int)
+        
+        func task(session: URLSession, adapter: RequestAdapter?, queue: DispatchQueue) throws -> URLSessionTask {
+            let task: URLSessionTask
+
+            switch self {
+            case let .stream(hostName, port):
+                task = queue.syncResult { session.streamTask(withHostName: hostName, port: port) }
+            }
+            
+            return task
+        }
+    }
+}
+
+#else
+
 /// Specific type of `Request` that manages an underlying `URLSessionStreamTask`.
 @available(iOS 9.0, macOS 10.11, tvOS 9.0, *)
 open class StreamRequest: Request {
     enum Streamable: TaskConvertible {
         case stream(hostName: String, port: Int)
         case netService(NetService)
-
+        
         func task(session: URLSession, adapter: RequestAdapter?, queue: DispatchQueue) throws -> URLSessionTask {
             let task: URLSessionTask
 
@@ -638,10 +666,12 @@ open class StreamRequest: Request {
             case let .netService(netService):
                 task = queue.syncResult { session.streamTask(with: netService) }
             }
-
+            
             return task
         }
     }
 }
+
+#endif
 
 #endif
